@@ -62,6 +62,18 @@
 		</TD>
 	</TR>
 	<TR>
+		<TD CLASS="qa-form-tall-label">
+Force title of source post: 
+		<INPUT NAME="force_source_title" TYPE="checkbox" VALUE="" CLASS="qa-form-tall-text">
+		</TD>
+	</TR>
+	<TR>
+		<TD CLASS="qa-form-tall-label">
+Force tags of source post: 
+		<INPUT NAME="force_source_tags" TYPE="checkbox" VALUE="" CLASS="qa-form-tall-text">
+		</TD>
+	</TR>
+	<TR>
 		<TD style="text-align:right;">
 			<INPUT NAME="merge_question_process" VALUE="Merge" TITLE="" TYPE="submit" CLASS="qa-form-tall-button qa-form-tall-button-0">
 		</TD>

@@ -61,6 +61,18 @@
                                 'type' => 'blank',
                         );
                         $fields[] = array(
+                                'type' => 'checkbox',
+				'label' => 'Use Title of From Post',
+				'value' => false,
+                                'tags' => 'name="force_from_title"'
+                        );
+                        $fields[] = array(
+                                'type' => 'checkbox',
+				'label' => 'Use Tags of From Post',
+				'value' => false,
+                                'tags' => 'name="force_from_tags"'
+                        );
+                        $fields[] = array(
                                 'label' => 'Text to show when redirecting from merged question',
                                 'tags' => 'NAME="merge_question_merged" id="merge_question_merged"',
                                 'value' => qa_opt('merge_question_merged'),

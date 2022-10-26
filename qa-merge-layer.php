@@ -7,6 +7,8 @@
 		function doctype() {
 			if(@$this->content['error'] == qa_lang_html('main/page_not_found') && preg_match('/^[0-9]+\//',$this->request) !== false) {
 				$pid = preg_replace('/\/.*/','',$this->request);
+				//if(preg_match('/^[0-9]+\//',$pid))//arjun
+				{
 				$merged = qa_db_read_one_assoc(
 					qa_db_query_sub(
 						"SELECT ^posts.postid as postid,^posts.title as title FROM ^postmeta, ^posts WHERE ^postmeta.meta_key='merged_with' AND ^postmeta.post_id=# AND ^posts.postid=^postmeta.meta_value",
@@ -15,6 +17,7 @@
 				);
 				if($merged) {
 					qa_redirect(qa_q_request($merged['postid'],$merged['title']),array('merged'=>$pid));
+				}
 				}
 			}
 			else if(qa_get('merged')) {
