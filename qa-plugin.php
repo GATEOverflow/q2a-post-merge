@@ -1,19 +1,5 @@
 <?php
 
-/*
-	Plugin Name: Merge
-	Plugin URI: https://github.com/NoahY/q2a-merge
-	Plugin Update Check URI: https://raw.github.com/NoahY/q2a-merge/master/qa-plugin.php
-	Plugin Description: Provides merging capabilities
-	Plugin Version: 0.2
-	Plugin Date: 2011-10-15
-	Plugin Author: NoahY
-	Plugin Author URI: http://www.question2answer.org/qa/user/NoahY
-	Plugin License: GPLv2
-	Plugin Minimum Question2Answer Version: 1.4
- */
-
-
 if (!defined('QA_VERSION')) { // don't allow this page to be requested directly from browser
 	header('Location: ../../');
 	exit;
@@ -96,6 +82,10 @@ function qa_merge_do_merge() {
 		);
 
 		qa_db_query_sub(
+			"UPDATE ^userfavorites SET entityid=# WHERE entityid=#",
+			$to, $from
+		);
+		qa_db_query_sub(
 			'CREATE TABLE IF NOT EXISTS ^postmeta (
 				meta_id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 				post_id bigint(20) unsigned NOT NULL,
@@ -126,7 +116,7 @@ function qa_merge_do_merge() {
 			"to" => $to
 		));*/
 			qa_report_event("in_q_merge", $postowner, qa_get_logged_in_handle(), qa_cookie_get_create(), array(
-			"postid" => qa_post_text('merge_to'),
+			"postid" => qa_post_text('merge_to'),"oldpostid" => $from,
 		));
 			/*deleting possible notification of post close*/
 			$query = "delete from ^eventlog where event like 'in_q_close' and params like 'postid=#%'";

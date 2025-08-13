@@ -1,0 +1,13 @@
+{
+	"name": "Merge",
+	"description": "Provides merging capabilities",
+	"version": "2.0",
+	"date": "2025-08-13",
+	"uri": "https://github.com/NoahY/q2a-merge",
+	"update_uri": "https://raw.github.com/NoahY/q2a-merge/master/qa-plugin.php",
+	"author": "NoahY,Shaik Masthan",
+	"author_uri": "http://www.question2answer.org/qa/user/NoahY",
+	"license": "GPLv2",
+	"min_q2a": "1.5",
+	"load_order": "after_db_init"
+}
