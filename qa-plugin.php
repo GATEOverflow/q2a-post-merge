@@ -81,10 +81,22 @@ function qa_merge_do_merge() {
 			$acount,$to
 		);
 
+		// Remove any rows where $to is already favorited by the same user as $from
+		qa_db_query_sub("
+			DELETE uf1
+			FROM ^userfavorites uf1
+			JOIN ^userfavorites uf2
+			  ON uf1.userid = uf2.userid
+			 AND uf1.entitytype = uf2.entitytype
+			 AND uf1.entityid = #
+			 AND uf2.entityid = #
+		", $from, $to);
+		// Now we can update the favorites table with the new postid
 		qa_db_query_sub(
 			"UPDATE ^userfavorites SET entityid=# WHERE entityid=#",
 			$to, $from
 		);
+		
 		qa_db_query_sub(
 			'CREATE TABLE IF NOT EXISTS ^postmeta (
 				meta_id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
