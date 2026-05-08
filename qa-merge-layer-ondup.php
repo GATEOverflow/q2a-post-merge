@@ -5,7 +5,7 @@ class qa_html_theme_layer extends qa_html_theme_base
 	//This function handle the action once the merging form submitted
     function doctype()
     {
-		if(qa_get_logged_in_level() >= QA_USER_LEVEL_ADMIN && (qa_post_text('copy_question_process') || qa_post_text('merge_question_process') || qa_post_text('link_question_process'))){
+		if(qa_get_logged_in_level() >= QA_USER_LEVEL_MODERATOR && (qa_post_text('copy_question_process') || qa_post_text('merge_question_process') || qa_post_text('link_question_process'))){
 			$from_postid = (int)qa_post_text('merge_from');
 			$to_postid = (int)qa_post_text('merge_to');
 			$from_site_prefix = qa_post_text('merge_from_site');
@@ -74,7 +74,7 @@ class qa_html_theme_layer extends qa_html_theme_base
 	{
 		qa_html_theme_base::q_view_clear();
 
-		if (qa_get_logged_in_level() < QA_USER_LEVEL_ADMIN) {
+		if (qa_get_logged_in_level() < QA_USER_LEVEL_MODERATOR) {
 			return;
 		}
 
