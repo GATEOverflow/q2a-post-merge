@@ -192,6 +192,38 @@ function qa_copy_or_merge($frompostid, $topostid, $from_site_prefix, $to_site_pr
             $new_sel = (int)$idmap[$from_post['selchildid']];
             qa_db_query_raw("UPDATE {$to_site_prefix}posts SET selchildid=$new_sel WHERE postid=$topostid");
         }
+
+        // Copy votes for migrated child posts
+        foreach ($idmap as $oldChildId => $newChildId) {
+            $votes = qa_db_read_all_assoc(
+                qa_db_query_raw("SELECT * FROM {$from_site_prefix}uservotes WHERE postid=" . (int)$oldChildId)
+            );
+            foreach ($votes as $vote) {
+                qa_db_query_raw("INSERT IGNORE INTO {$to_site_prefix}uservotes (postid, userid, vote, flag, votecreated, voteupdated) VALUES ("
+                    . (int)$newChildId . ", "
+                    . (int)$vote['userid'] . ", "
+                    . (int)$vote['vote'] . ", "
+                    . (int)$vote['flag'] . ", "
+                    . (isset($vote['votecreated']) ? "'" . qa_db_escape_string($vote['votecreated']) . "'" : "NULL") . ", "
+                    . (isset($vote['voteupdated']) ? "'" . qa_db_escape_string($vote['voteupdated']) . "'" : "NULL") . ")"
+                );
+            }
+        }
+
+        // Copy votes from source question to target question (skip if user already voted on target)
+        $qvotes = qa_db_read_all_assoc(
+            qa_db_query_raw("SELECT * FROM {$from_site_prefix}uservotes WHERE postid=" . (int)$frompostid)
+        );
+        foreach ($qvotes as $vote) {
+            qa_db_query_raw("INSERT IGNORE INTO {$to_site_prefix}uservotes (postid, userid, vote, flag, votecreated, voteupdated) VALUES ("
+                . (int)$topostid . ", "
+                . (int)$vote['userid'] . ", "
+                . (int)$vote['vote'] . ", "
+                . (int)$vote['flag'] . ", "
+                . (isset($vote['votecreated']) ? "'" . qa_db_escape_string($vote['votecreated']) . "'" : "NULL") . ", "
+                . (isset($vote['voteupdated']) ? "'" . qa_db_escape_string($vote['voteupdated']) . "'" : "NULL") . ")"
+            );
+        }
     }
     // --- Common updates ---
     $acount = (int)$from_post['acount'] + (int)$to_post['acount'];
