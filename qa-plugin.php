@@ -143,6 +143,15 @@ function qa_copy_or_merge($frompostid, $topostid, $from_site_prefix, $to_site_pr
             qa_db_query_raw("SELECT * FROM {$from_site_prefix}posts WHERE parentid=$frompostid")
         );
 
+        // Load existing children on target for dedup (keyed by userid|created)
+        $existingChildren = qa_db_read_all_assoc(
+            qa_db_query_raw("SELECT postid, userid, created, content FROM {$to_site_prefix}posts WHERE parentid=$topostid")
+        );
+        $existingMap = [];
+        foreach ($existingChildren as $ec) {
+            $existingMap[(int)$ec['userid'] . '|' . $ec['created']] = $ec;
+        }
+
         $idmap = [];
 
         foreach ($children as $child) {
@@ -150,7 +159,21 @@ function qa_copy_or_merge($frompostid, $topostid, $from_site_prefix, $to_site_pr
 			if (substr($child['type'], 0, 1) === 'N') {
 				continue;
 			}
-			//$categoryid = $child['categoryid'] ?? NULL;
+
+			$dedupKey = (int)$child['userid'] . '|' . $child['created'];
+
+			// Check for duplicate on target
+			if (isset($existingMap[$dedupKey])) {
+				$existing = $existingMap[$dedupKey];
+				$idmap[$child['postid']] = (int)$existing['postid'];
+
+				// If content differs, update target with source content
+				if (trim($existing['content']) !== trim($child['content'])) {
+					qa_db_query_raw("UPDATE {$to_site_prefix}posts SET content='" . qa_db_escape_string($child['content']) . "', updated=NOW(), updatetype='M' WHERE postid=" . (int)$existing['postid']);
+				}
+				continue;
+			}
+
 			qa_db_query_raw(
 				"INSERT INTO {$to_site_prefix}posts (
 					type, parentid, categoryid, acount, selchildid,
