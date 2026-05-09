@@ -14,7 +14,14 @@ class qa_html_theme_layer extends qa_html_theme_base
 			$is_to_blog = (int)qa_post_text('is_to_blog');
 			$force_source_title = isset($_POST['force_source_title']);
             $force_source_tags = isset($_POST['force_source_tags']);
-			$action;
+			$action = null;
+
+			// Validate site prefixes against known network sites
+			if (!qa_validate_site_prefix($from_site_prefix) || !qa_validate_site_prefix($to_site_prefix)) {
+				$this->content['error'] = 'Invalid site prefix.';
+				qa_html_theme_base::doctype();
+				return;
+			}
 			 	
 			if(qa_post_text('copy_question_process')){
 				$action="copy";
@@ -39,7 +46,7 @@ class qa_html_theme_layer extends qa_html_theme_base
 				// Call updated merge function with all required parameters
 				$operation = qa_copy_or_merge($from_postid, $to_postid, $from_site_prefix, $to_site_prefix, $force_source_title, $force_source_tags, $action);
 			}
-			if($action === "merge" || ($action === "redirect" && $operation = true ) )
+			if($action === "merge" || ($action === "redirect" && $operation === true ) )
 			{
 				if($operation === true)
 					$operation = delete_and_redirect_linking($from_postid, $to_postid, $from_site_prefix, $to_site_prefix, $is_from_blog, $is_to_blog);
@@ -174,15 +181,15 @@ class qa_html_theme_layer extends qa_html_theme_base
 				$this->output('
 					<FORM METHOD="POST">
 					<TABLE>
-						<INPUT TYPE="hidden" NAME="is_to_blog" id="is_to_blog" VALUE="' . $is_to_blog . '">
-						<INPUT TYPE="hidden" NAME="is_from_blog" id="is_from_blog" VALUE="' . $is_from_blog . '">
-						<INPUT TYPE="hidden" NAME="merge_from_site" id="merge_from_site" VALUE="' . $from_site . '">
+						<INPUT TYPE="hidden" NAME="is_to_blog" id="is_to_blog" VALUE="' . qa_html($is_to_blog) . '">
+						<INPUT TYPE="hidden" NAME="is_from_blog" id="is_from_blog" VALUE="' . qa_html($is_from_blog) . '">
+						<INPUT TYPE="hidden" NAME="merge_from_site" id="merge_from_site" VALUE="' . qa_html($from_site) . '">
 						<TR>
 							<TD CLASS="qa-form-tall-label">
 								From: &nbsp;
-								<INPUT NAME="merge_from" id="merge_from" TYPE="text" VALUE="' . $this->content['q_view']['raw']['postid'] . '" CLASS="qa-form-tall-number">
+								<INPUT NAME="merge_from" id="merge_from" TYPE="text" VALUE="' . qa_html($this->content['q_view']['raw']['postid']) . '" CLASS="qa-form-tall-number">
 								&nbsp; To: &nbsp;
-								<INPUT NAME="merge_to" id="merge_to" TYPE="text" VALUE="' . $merge_to_postid . '" CLASS="qa-form-tall-number">
+								<INPUT NAME="merge_to" id="merge_to" TYPE="text" VALUE="' . qa_html($merge_to_postid) . '" CLASS="qa-form-tall-number">
 							</TD>
 						</TR>
 						<TR>

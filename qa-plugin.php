@@ -33,6 +33,9 @@ function qa_network_sites_list()
 		if (empty($prefix) && empty($url) && empty($title)) {
 			break; // stop when no more sites
 		}
+
+		$i++;
+
 		if (empty($prefix) || empty($url) || empty($title)) { 
 			continue; // skip incomplete site
 		}
@@ -42,8 +45,6 @@ function qa_network_sites_list()
 			'url'    => rtrim($url, '/'),
 			'title'  => $title,
 		];
-
-		$i++;
 	}
 
 	// Always add the current site as the first option
@@ -81,6 +82,15 @@ function qa_network_site_url($prefix = null, $url = null) {
     return null; // if both are null
 }
 
+// Validate that a site prefix is in the known network sites list
+function qa_validate_site_prefix($prefix) {
+    foreach (qa_network_sites_list() as $site) {
+        if ($site['prefix'] === $prefix) {
+            return true;
+        }
+    }
+    return false;
+}
 
 
 // 3. Actual function which is performing Coping or Merging of the question
@@ -135,7 +145,28 @@ function qa_copy_or_merge($frompostid, $topostid, $from_site_prefix, $to_site_pr
 								updatetype = 'M',
 								lastuserid = " . $userid  . "
 							WHERE postid = $topostid");
-        }	
+        }
+
+        // Copy question-level votes from source to target (same-site merge)
+        $qvotes_same = qa_db_read_all_assoc(
+            qa_db_query_raw("SELECT * FROM {$from_site_prefix}uservotes WHERE postid=" . (int)$frompostid)
+        );
+        foreach ($qvotes_same as $vote) {
+            qa_db_query_raw("INSERT IGNORE INTO {$to_site_prefix}uservotes (postid, userid, vote, flag, votecreated, voteupdated) VALUES ("
+                . (int)$topostid . ", "
+                . (int)$vote['userid'] . ", "
+                . (int)$vote['vote'] . ", "
+                . (int)$vote['flag'] . ", "
+                . (isset($vote['votecreated']) ? "'" . qa_db_escape_string($vote['votecreated']) . "'" : "NULL") . ", "
+                . (isset($vote['voteupdated']) ? "'" . qa_db_escape_string($vote['voteupdated']) . "'" : "NULL") . ")"
+            );
+        }
+        // Recalculate vote counts on target question
+        qa_db_query_raw("UPDATE {$to_site_prefix}posts SET
+            upvotes = COALESCE((SELECT COUNT(*) FROM {$to_site_prefix}uservotes WHERE postid=" . (int)$topostid . " AND vote > 0), 0),
+            downvotes = COALESCE((SELECT COUNT(*) FROM {$to_site_prefix}uservotes WHERE postid=" . (int)$topostid . " AND vote < 0), 0),
+            netvotes = COALESCE((SELECT SUM(vote) FROM {$to_site_prefix}uservotes WHERE postid=" . (int)$topostid . "), 0)
+            WHERE postid=" . (int)$topostid);
 
     } else if($action === "copy" || ($action === "merge" && $from_site_prefix != $to_site_prefix)){
         // --- copy with in site or across sites , Cross-site merge - we need to insert the posts 
@@ -216,6 +247,67 @@ function qa_copy_or_merge($frompostid, $topostid, $from_site_prefix, $to_site_pr
             qa_db_query_raw("UPDATE {$to_site_prefix}posts SET selchildid=$new_sel WHERE postid=$topostid");
         }
 
+        // Copy children of answers (e.g., comments on answers)
+        $subIdmap = [];
+        foreach ($idmap as $oldChildId => $newChildId) {
+            $subchildren = qa_db_read_all_assoc(
+                qa_db_query_raw("SELECT * FROM {$from_site_prefix}posts WHERE parentid=" . (int)$oldChildId)
+            );
+            foreach ($subchildren as $sc) {
+                if (substr($sc['type'], 0, 1) === 'N') {
+                    continue;
+                }
+
+                // Check for duplicate on target
+                $existingSub = qa_db_read_one_assoc(
+                    qa_db_query_raw("SELECT postid, content FROM {$to_site_prefix}posts WHERE parentid=" . (int)$newChildId . " AND userid=" . (int)$sc['userid'] . " AND created='" . qa_db_escape_string($sc['created']) . "'"),
+                    true
+                );
+                if ($existingSub) {
+                    $subIdmap[$sc['postid']] = (int)$existingSub['postid'];
+                    if (trim($existingSub['content']) !== trim($sc['content'])) {
+                        qa_db_query_raw("UPDATE {$to_site_prefix}posts SET content='" . qa_db_escape_string($sc['content']) . "', updated=NOW(), updatetype='M' WHERE postid=" . (int)$existingSub['postid']);
+                    }
+                    continue;
+                }
+
+                qa_db_query_raw(
+                    "INSERT INTO {$to_site_prefix}posts (
+                        type, parentid, categoryid, acount, selchildid,
+                        userid, cookieid, createip, title, content,
+                        tags, format, netvotes, lastuserid, lastip,
+                        lastviewip, views, hotness, flagcount, closedbyid, created, updated, updatetype
+                    ) VALUES (
+                        '" . qa_db_escape_string($sc['type']) . "',
+                        " . (int)$newChildId . ",
+                        NULL,
+                        " . (int)$sc['acount'] . ",
+                        NULL,
+                        " . (int)$sc['userid'] . ",
+                        " . (int)$sc['cookieid'] . ",
+                        '" . qa_db_escape_string($sc['createip']) . "',
+                        " . (isset($sc['title']) ? "'" . qa_db_escape_string($sc['title']) . "'" : "NULL") . ",
+                        '" . qa_db_escape_string($sc['content']) . "',
+                        '" . qa_db_escape_string($sc['tags']) . "',
+                        '" . qa_db_escape_string($sc['format']) . "',
+                        " . (int)$sc['netvotes'] . ",
+                        " . (int)$userid . ",
+                        '" . qa_db_escape_string($sc['lastip']) . "',
+                        '" . qa_db_escape_string($sc['lastviewip']) . "',
+                        " . (int)$sc['views'] . ",
+                        " . (float)$sc['hotness'] . ",
+                        " . (int)$sc['flagcount'] . ",
+                        NULL,
+                        '" . qa_db_escape_string($sc['created']) . "',
+                        NOW(),
+                        'M'
+                    )"
+                );
+                $subIdmap[$sc['postid']] = qa_db_last_insert_id();
+            }
+        }
+        $idmap = $idmap + $subIdmap;
+
         // Copy votes for migrated child posts
         foreach ($idmap as $oldChildId => $newChildId) {
             $votes = qa_db_read_all_assoc(
@@ -246,6 +338,17 @@ function qa_copy_or_merge($frompostid, $topostid, $from_site_prefix, $to_site_pr
                 . (isset($vote['votecreated']) ? "'" . qa_db_escape_string($vote['votecreated']) . "'" : "NULL") . ", "
                 . (isset($vote['voteupdated']) ? "'" . qa_db_escape_string($vote['voteupdated']) . "'" : "NULL") . ")"
             );
+        }
+
+        // Recalculate vote counts on all affected posts from uservotes
+        $allAffectedIds = array_values($idmap);
+        $allAffectedIds[] = (int)$topostid;
+        foreach ($allAffectedIds as $affId) {
+            qa_db_query_raw("UPDATE {$to_site_prefix}posts SET
+                upvotes = COALESCE((SELECT COUNT(*) FROM {$to_site_prefix}uservotes WHERE postid=" . (int)$affId . " AND vote > 0), 0),
+                downvotes = COALESCE((SELECT COUNT(*) FROM {$to_site_prefix}uservotes WHERE postid=" . (int)$affId . " AND vote < 0), 0),
+                netvotes = COALESCE((SELECT SUM(vote) FROM {$to_site_prefix}uservotes WHERE postid=" . (int)$affId . "), 0)
+                WHERE postid=" . (int)$affId);
         }
     }
     // --- Common updates ---
@@ -362,6 +465,13 @@ function delete_and_redirect_linking($frompostid, $topostid, $from_site_prefix, 
         );
     }
 	
+	//Fetch the post owner BEFORE deletion so we can report the event afterwards.
+	require_once QA_INCLUDE_DIR.'qa-app-posts.php';
+	$from_table = $is_from_blog ? "{$from_site_prefix}blogs" : "{$from_site_prefix}posts";
+	$postowner = qa_db_read_one_value(
+		qa_db_query_raw("SELECT userid FROM {$from_table} WHERE postid=" . (int)$frompostid), true
+	);
+
 	//Delete the Post - we are trying to delete the post at the begining itself. So, if any error occured, the linkage, favorites table update and event report will not take place.
 	if($is_from_blog){
 		qas_blog_post_delete_recursive($frompostid);
@@ -378,11 +488,6 @@ function delete_and_redirect_linking($frompostid, $topostid, $from_site_prefix, 
 	qa_network_update_merges($frompostid, $topostid, $from_site_prefix, $to_site_prefix, $is_from_blog, $is_to_blog);
 
 	//Report this event. So, other plugins may read and update relevant tables.
-	require_once QA_INCLUDE_DIR.'qa-app-posts.php';
-	$from_table = $is_from_blog ? "{$from_site_prefix}blogs" : "{$from_site_prefix}posts";
-	$postowner = qa_db_read_one_value(
-		qa_db_query_raw("SELECT userid FROM {$from_table} WHERE postid=$frompostid"), true
-	);
 	qa_report_event("in_q_merge", $postowner, qa_get_logged_in_handle(), qa_cookie_get_create(), array(
 		"postid"    => $topostid,
 		"oldpostid" => $frompostid,
