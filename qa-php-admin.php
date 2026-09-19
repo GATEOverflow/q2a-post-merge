@@ -39,35 +39,36 @@ class qa_merge_admin {
 					KEY meta_key (meta_key)
 				) ENGINE=MyISAM DEFAULT CHARSET=utf8";
 		}
+		else{
 
-		// Check existing columns
-		$sqlCols = 'SHOW COLUMNS FROM '.$tablename;
-		$fields = qa_db_read_all_values(qa_db_query_sub($sqlCols));
+			// Check existing columns
+			$sqlCols = 'SHOW COLUMNS FROM '.$tablename;
+			$fields = qa_db_read_all_values(qa_db_query_sub($sqlCols));
 
-		// Required extra columns (column => definition)
-		$requiredColumns = array(
-			'site_prefix' => "varchar(64) DEFAULT NULL",
-			'is_from_blog'     => "tinyint(1) NOT NULL DEFAULT 0",
-			'is_to_blog'     => "tinyint(1) NOT NULL DEFAULT 0",
-		);
+			// Required extra columns (column => definition)
+			$requiredColumns = array(
+				'site_prefix' => "varchar(64) DEFAULT NULL",
+				'is_from_blog'     => "tinyint(1) NOT NULL DEFAULT 0",
+				'is_to_blog'     => "tinyint(1) NOT NULL DEFAULT 0",
+			);
 
-		foreach ($requiredColumns as $column => $definition) {
-			if (!in_array($column, $fields)) {
-				$queries[] = "ALTER TABLE $tablename ADD $column $definition";
+			foreach ($requiredColumns as $column => $definition) {
+				if (!in_array($column, $fields)) {
+					$queries[] = "ALTER TABLE $tablename ADD $column $definition";
 
-				if ($column === 'site_prefix') {
-					// Set all existing rows to current prefix for consistency
-					$queries[] = "UPDATE $tablename SET site_prefix = '".QA_MYSQL_TABLE_PREFIX."'";
-				}
-				if ($column === 'is_from_blog') {
-					$queries[] = "UPDATE $tablename SET is_from_blog = 0";
-				}
-				if ($column === 'is_to_blog') {
-					$queries[] = "UPDATE $tablename SET is_to_blog = 0";
+					if ($column === 'site_prefix') {
+						// Set all existing rows to current prefix for consistency
+						$queries[] = "UPDATE $tablename SET site_prefix = '".QA_MYSQL_TABLE_PREFIX."'";
+					}
+					if ($column === 'is_from_blog') {
+						$queries[] = "UPDATE $tablename SET is_from_blog = 0";
+					}
+					if ($column === 'is_to_blog') {
+						$queries[] = "UPDATE $tablename SET is_to_blog = 0";
+					}
 				}
 			}
 		}
-
 		return $queries;
 	}
 
