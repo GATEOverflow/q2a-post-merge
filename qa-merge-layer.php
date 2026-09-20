@@ -62,7 +62,10 @@ class qa_html_theme_layer extends qa_html_theme_base {
 				}
 
 				// Build full URL and redirect
-				qa_redirect_raw($baseUrl . "/".qa_q_request($targetPostid, $title) . '?merged=' . $pid);
+				//qa_redirect_raw($baseUrl . "/".qa_q_request($targetPostid, $title) . '?merged=' . $pid);
+				$redirectUrl = $baseUrl . "/" . qa_q_request($targetPostid, $title) . '?merged=' . $pid;
+				header('Location: ' . $redirectUrl, true, 301);
+				qa_exit('redirect');
 				return;
 			}
 		}
